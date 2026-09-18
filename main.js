@@ -363,13 +363,12 @@ function cleanExpiredLocalClaims() {
 
 async function fetchAndRenderInitialTickets() {
     const nowMs = Date.now();
-    const maxDistrictSec = Math.floor(nowMs / 1000) - 480;
+    const maxDistrictMs = nowMs - 480000;
     const maxBmsMs = nowMs - 300000;
     const claimTids = Object.keys(localClaims);
-
-    // Construct the smart OR query
-    let orQuery = `and(platform_name.eq.district,status.eq.AVAILABLE,snipe_timestamp.gte.${maxDistrictSec}),and(platform_name.is.null,status.eq.AVAILABLE,snipe_timestamp.gte.${maxBmsMs})`;
-
+    
+    // Construct the smart OR query (now using unified milliseconds and exact platform names)
+    let orQuery = `and(platform_name.eq.district,status.eq.AVAILABLE,snipe_timestamp.gte.${maxDistrictMs}),and(platform_name.eq.bookmyshow,status.eq.AVAILABLE,snipe_timestamp.gte.${maxBmsMs})`;
     if (claimTids.length > 0) {
         orQuery += `,transaction_id.in.(${claimTids.join(",")})`;
     }
@@ -390,10 +389,8 @@ async function fetchAndRenderInitialTickets() {
     } else if (tickets && tickets.length > 0) {
         tickets.forEach((ticket) => {
             const maxLifetimeMs = (ticket.platform_name === "district" ? 480 : 300) * 1000;
-            // Normalize on the fly
-            const normalizedTs = ticket.snipe_timestamp > 100000000000 ? ticket.snipe_timestamp : ticket.snipe_timestamp * 1000;
-
-            if ((Date.now() - normalizedTs <= maxLifetimeMs) || localClaims[ticket.transaction_id]) {
+            
+            if ((Date.now() - ticket.snipe_timestamp <= maxLifetimeMs) || localClaims[ticket.transaction_id]) {
                 addTicketToUI(ticket, false);
             }
         });
@@ -408,8 +405,7 @@ function subscribeToRealtimeTickets() {
     }, (payload) => {
         if (payload.eventType === "INSERT" && payload.new.status === "AVAILABLE") {
             const maxLifetimeMs = payload.new.platform_name === "district" ? 480 * 1000 : 300 * 1000;
-            const normalizedTs = payload.new.snipe_timestamp > 100000000000 ? payload.new.snipe_timestamp : payload.new.snipe_timestamp * 1000;
-            if (Date.now() - normalizedTs <= maxLifetimeMs) {
+            if (Date.now() - payload.new.snipe_timestamp <= maxLifetimeMs) {
                 addTicketToUI(payload.new, true);
             }
         } else if (payload.eventType === "UPDATE" && payload.new.status === "CLAIMED") {
@@ -446,9 +442,8 @@ function addTicketToUI(ticket, prepend = false) {
         li.classList.add("claimed-ticket");
     }
     li.innerHTML = `<div class="t-main"><div class="t-header"><span>${ticket.attributes || "Screen unlisted"}</span><span>${ticket.show_date_code} • ${ticket.show_time}</span></div><div class="t-movie-title">${ticket.event_title || "Unknown title"}</div><div class="t-headers"><span>${ticket.event_language} • ${ticket.event_dimension}${ticket.seating_class ? " • " + ticket.seating_class : ""}</span></div></div><div class="t-stub"><span class="notch notch-top"></span><span class="notch notch-bottom"></span><div class="stub-seat">${ticket.seat}</div></div><div class="timer-track"><div class="timer-bar"></div></div>`;
-    const platform = ticket.platform_name || "";
-    const rawTs = parseInt(ticket.snipe_timestamp);
-    const normalizedTs = rawTs > 100000000000 ? rawTs : rawTs * 1000;
+    const platform = ticket.platform_name || "bookmyshow";
+    const normalizedTs = parseInt(ticket.snipe_timestamp);
     const totalDurationMs = (platform === "district" ? 480 : 300) * 1000;
 
     ticketRegistry.set(ticket.transaction_id, {
@@ -592,9 +587,7 @@ btnGenerate.addEventListener("click", async () => {
         return;
     }
     // 1. Update pre-flight expiration check
-    const ticketLifetime = currentSelectedTicket.platform_name === 'district' ? 480 * 1000 : 300 * 1000;
-    const normalizedTs = currentSelectedTicket.snipe_timestamp > 100000000000 ? currentSelectedTicket.snipe_timestamp : currentSelectedTicket.snipe_timestamp * 1000;
-    if (Date.now() - normalizedTs > ticketLifetime) {
+    if (!ticketRegistry.has(currentSelectedTicket.transaction_id)) {
         clearCheckoutPanel();
         return;
     }
