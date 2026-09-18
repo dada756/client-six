@@ -16,13 +16,6 @@ export default async function handler(req, res) {
 
     try {
         const body = req.body;
-        // 1. Initialize Supabase Admin lazily
-        if (!supabaseAdmin) {
-            if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) throw new Error("Missing Supabase env vars.");
-            supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-        }
-
-
         if (body.platform_name === "district") {
             const token = req.headers.authorization?.split('Bearer ')[1];
             if (!token) return res.status(401).json({
