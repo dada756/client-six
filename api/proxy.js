@@ -1,10 +1,12 @@
-import { createClient } from '@supabase/supabase-js';
+import {
+    createClient
+} from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.SUPABASE_URL || "";
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-const supabaseAdmin = (supabaseUrl && supabaseKey) 
-    ? createClient(supabaseUrl, supabaseKey) 
-    : null;
+const supabaseAdmin = (supabaseUrl && supabaseKey) ?
+    createClient(supabaseUrl, supabaseKey) :
+    null;
 
 export default async function handler(req, res) {
     // Only allow POST requests
@@ -34,14 +36,16 @@ export default async function handler(req, res) {
 
             // 3. Fetch the user's District profile data
             // ADD THIS:
-const profile = {
-    district_device_id: body.district_device_id,
-    district_access_token: body.district_access_token,
-    district_refresh_token: body.district_refresh_token,
-    district_user_id: body.district_user_id,
-    district_phone_number: body.district_phone_number
-};
-if (!profile.district_device_id) return res.status(400).json({ error: 'Missing District auth tokens in payload' });
+            const profile = {
+                district_device_id: body.district_device_id,
+                district_access_token: body.district_access_token,
+                district_refresh_token: body.district_refresh_token,
+                district_user_id: body.district_user_id,
+                district_phone_number: body.district_phone_number
+            };
+            if (!profile.district_device_id) return res.status(400).json({
+                error: 'Missing District auth tokens in payload'
+            });
 
 
             // --- NEW: Multi-Step 'district' Workflow ---
