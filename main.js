@@ -536,14 +536,20 @@ btnGenerate.addEventListener("click", async () => {
                 "Authorization": `Bearer ${userState.session?.access_token || ""}`
             },
             body: JSON.stringify({
-                transaction_id: currentSelectedTicket.transaction_id,
-                venue_code: currentSelectedTicket.venue_code,
-                trans_uid: currentSelectedTicket.trans_uid,
-                email: email,
-                phone: phone,
-                platform_name: currentSelectedTicket.platform_name,
-                content_id: currentSelectedTicket.content_id
-            }),
+    transaction_id: currentSelectedTicket.transaction_id,
+    venue_code: currentSelectedTicket.venue_code,
+    trans_uid: currentSelectedTicket.trans_uid,
+    email: email,
+    phone: phone,
+    platform_name: currentSelectedTicket.platform_name,
+    content_id: currentSelectedTicket.content_id,
+    // Add these lines to pass cached tokens:
+    district_device_id: userState.profile?.district_device_id,
+    district_access_token: userState.profile?.district_access_token,
+    district_refresh_token: userState.profile?.district_refresh_token,
+    district_user_id: userState.profile?.district_user_id,
+    district_phone_number: userState.profile?.district_phone_number
+}),
         });
         const data = await response.json();
         const tid = currentSelectedTicket.transaction_id;
