@@ -1,8 +1,10 @@
-import {
-    createClient
-} from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 
-let supabaseAdmin;
+const supabaseUrl = process.env.SUPABASE_URL || "";
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const supabaseAdmin = (supabaseUrl && supabaseKey) 
+    ? createClient(supabaseUrl, supabaseKey) 
+    : null;
 
 export default async function handler(req, res) {
     // Only allow POST requests
