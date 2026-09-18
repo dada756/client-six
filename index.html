@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Home</title>
+        <!-- Premium Fonts: Inter for UI, JetBrains Mono for Data -->
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+            rel="stylesheet"
+        />
+        <link rel="stylesheet" href="/style.css" />
+    </head>
+    <body>
+        <div class="terminal-layout">
+            <!-- Left Panel: Live Radar Feed -->
+            <section class="radar-panel">
+                <div class="panel-header">
+                    <h3 id="btn-show-login-modal" style="cursor: pointer; user-select: none;">Available seats</h3>
+                    <div id="connection-status" class="status-indicator">
+                        <span class="dot pulse"></span> <span id="status-text">CONNECTING</span>
+                    </div>
+                </div>
+                <div class="feed-container">
+                    <ul id="ticket-list" class="ticket-feed">
+                        <!-- Tickets injected here -->
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Right Panel: Command & Checkout -->
+            <section class="command-panel">
+                <div class="command-console">
+                    <button id="btn-close-panel" class="btn-close">&times;</button>
+                    <div class="collapsible-section">
+                        <div id="selected-ticket" class="active-target-display empty-state">
+                            <p>Select a seat from the left to begin</p>
+                        </div>
+                        <div class="user-data-grid">
+                            <div class="input-group">
+                                <label>Phone number</label>
+                                <input type="text" id="user-phone" placeholder="10-digit number" autocomplete="off" disabled />
+                            </div>
+                            <div class="input-group">
+                                <label>Email</label>
+                                <input type="email" id="user-email" placeholder="you@example.com" autocomplete="off" disabled />
+                            </div>
+                        </div>
+                        <button id="btn-generate" class="btn-primary" disabled>
+                            <span class="btn-text">Get payment QR</span>
+                        </button>
+                    </div>
+                    <div id="status-msg" class="system-msg"></div>
+                    <div id="qr-container" class="qr-container" style="display: none"></div>
+                </div>
+            </section>
+        </div>
+
+        <!-- NEW: Auth Modal -->
+        <div id="auth-modal-overlay" class="modal-overlay" style="display: none;">
+            <div id="auth-modal" class="modal-container">
+                <button id="btn-close-modal" class="btn-close-modal">&times;</button>
+
+                <!-- View 1: Login / Register -->
+                <div id="view-login-register" class="modal-view">
+                    <h4>Account Access</h4>
+                    <p class="modal-subtext">Enter your email and password. If the account doesn't exist, it will be created.</p>
+                    <form id="form-login-register">
+                        <div class="input-group">
+                            <label>Email</label>
+                            <input type="email" id="auth-email" required placeholder="you@example.com" />
+                        </div>
+                        <div class="input-group">
+                            <label>Password</label>
+                            <input type="password" id="auth-password" required placeholder="••••••••" />
+                        </div>
+                        <button type="submit" class="btn-primary">Continue</button>
+                    </form>
+                </div>
+
+                <!-- View 2: Logged In State & Sync Management -->
+                <div id="view-logged-in" class="modal-view" style="display: none;">
+                    <h4>Account Status</h4>
+                    <p class="modal-subtext">Logged in as: <strong id="logged-in-email"></strong></p>
+                    <div id="district-sync-status" class="sync-status-box">
+                        <!-- Content injected by JS -->
+                    </div>
+                    <button id="btn-logout" class="btn-secondary">Logout</button>
+                </div>
+
+                <!-- View 3: Enter Phone Number -->
+                <div id="view-integrate-phone" class="modal-view" style="display: none;">
+                    <h4>Link District Account (1/2)</h4>
+                    <p class="modal-subtext">Enter your 10-digit mobile number registered with District.</p>
+                    <form id="form-phone">
+                        <div class="input-group">
+                            <label>Phone Number</label>
+                            <input type="tel" id="district-phone" required placeholder="10-digit number" pattern="[0-9]{10}" />
+                        </div>
+                        <button type="submit" class="btn-primary">Send OTP</button>
+                    </form>
+                </div>
+
+                <!-- View 4: Enter OTP -->
+                <div id="view-integrate-otp" class="modal-view" style="display: none;">
+                    <h4>Link District Account (2/2)</h4>
+                    <p class="modal-subtext">An OTP has been sent to <strong id="otp-phone-display"></strong>. Enter it below.</p>
+                    <form id="form-otp">
+                        <div class="input-group">
+                            <label>6-Digit OTP</label>
+                            <input type="text" id="district-otp" required placeholder="_ _ _ _ _ _" pattern="[0-9]{6}" />
+                        </div>
+                        <button type="submit" class="btn-primary">Verify & Link Account</button>
+                    </form>
+                </div>
+
+                <!-- View 5: Show Keys (One-Time View) -->
+                <div id="view-show-keys" class="modal-view" style="display: none;">
+                    <h4>Sync Complete!</h4>
+                    <p class="modal-subtext">Your account is linked. For your records, here is your configuration. This is a one-time view.</p>
+                    <div class="code-snippet-wrapper">
+                        <button id="btn-copy-keys" class="btn-copy">Copy</button>
+                        <div class="code-snippet-container">
+                            <pre><code id="config-snippet"></code></pre>
+                        </div>
+                    </div>
+                    <button id="btn-close-keys-view" class="btn-primary">Got it, close</button>
+                </div>
+
+                <div id="modal-status-msg" class="system-msg"></div>
+            </div>
+        </div>
+
+        <script type="module" src="/main.js"></script>
+    </body>
+</html>
