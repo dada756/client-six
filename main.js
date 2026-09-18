@@ -6,6 +6,7 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // --- GLOBAL STATE ---
+const ticketRegistry = new Map();
 let userState = { session: null, profile: null, isDistrictLinked: false };
 let tempAuthState = { guestToken: null, phoneNumber: null };
 const LOCK_LIFETIME_MS = 5 * 60 * 1000;
@@ -59,6 +60,7 @@ async function init() {
     supabase.auth.onAuthStateChange((_event, session) => {
         handleAuthStateChange(session);
     });
+    setupFeedDelegation();
 }
 
 // --- AUTHENTICATION LOGIC ---
@@ -90,6 +92,20 @@ function setupAuthListeners() {
     });
 }
 
+function setupFeedDelegation() {
+    listEl.addEventListener("click", (e) => {
+        const item = e.target.closest(".ticket-item");
+        if (!item) return;
+        const tid = item.getAttribute("data-tid");
+        const ticketData = ticketRegistry.get(tid);
+        if (ticketData) {
+            document.querySelectorAll(".ticket-item").forEach((el) => el.classList.remove("active"));
+            item.classList.add("active");
+            selectTicket(ticketData.rawTicket);
+            commandPanel.classList.add("panel-open");
+        }
+    });
+}
 async function handleAuthStateChange(session) {
     if (session) {
         // 1. Verify the cached session against the live database
@@ -331,8 +347,11 @@ function subscribeToRealtimeTickets() {
         } else if (payload.eventType === "UPDATE" && payload.new.status === "CLAIMED") {
             const tid = payload.new.transaction_id;
             if (!localClaims[tid]) {
-                const deadItem = document.querySelector(`.ticket-item[data-tid="${tid}"]`);
-                if (deadItem) deadItem.remove();
+                const registryItem = ticketRegistry.get(tid);
+if (registryItem) {
+    registryItem.element.remove();
+    ticketRegistry.delete(tid);
+}
                 if (currentSelectedTicket && currentSelectedTicket.transaction_id === tid) {
                     clearCheckoutPanel();
                 }
@@ -359,12 +378,20 @@ function addTicketToUI(ticket, prepend = false) {
         li.classList.add("claimed-ticket");
     }
     li.innerHTML = `<div class="t-main"><div class="t-header"><span>${ticket.attributes || "Screen unlisted"}</span><span>${ticket.show_date_code} • ${ticket.show_time}</span></div><div class="t-movie-title">${ticket.event_title || "Unknown title"}</div><div class="t-headers"><span>${ticket.event_language} • ${ticket.event_dimension}${ticket.seating_class ? " • " + ticket.seating_class : ""}</span></div></div><div class="t-stub"><span class="notch notch-top"></span><span class="notch notch-bottom"></span><div class="stub-seat">${ticket.seat}</div></div><div class="timer-track"><div class="timer-bar"></div></div>`;
-    li.addEventListener("click", () => {
-        document.querySelectorAll(".ticket-item").forEach((el) => el.classList.remove("active"));
-        li.classList.add("active");
-        selectTicket(ticket);
-        commandPanel.classList.add("panel-open");
-    });
+    const platform = ticket.platform_name || "";
+const rawTs = parseInt(ticket.snipe_timestamp);
+const normalizedTs = rawTs > 100000000000 ? rawTs : rawTs * 1000;
+const totalDurationMs = (platform === "district" ? 480 : 300) * 1000;
+
+ticketRegistry.set(ticket.transaction_id, {
+    transactionId: ticket.transaction_id,
+    element: li,
+    timerBar: li.querySelector(".timer-bar"),
+    normalizedTs: normalizedTs,
+    totalDurationMs: totalDurationMs,
+    platform: platform,
+    rawTicket: ticket
+});
     if (prepend) {
         listEl.prepend(li);
         li.animate([{ borderColor: "var(--status-green)" }, { borderColor: "var(--border-muted)" }], { duration: 1500 });
@@ -433,16 +460,14 @@ function clearCheckoutPanel() {
 
 function sweepExpiredTickets() {
     const now = Date.now();
-    document.querySelectorAll(".ticket-item").forEach((item) => {
-        const tid = item.getAttribute("data-tid");
-        const platform = item.getAttribute("data-platform");
-        const claimData = localClaims[tid];
+    let claimsChanged = false;
 
+    for (const [tid, data] of ticketRegistry.entries()) {
+        const claimData = localClaims[tid];
         let totalDurationMs;
         let timeRemainingMs;
 
         if (claimData) {
-            // Claimed QR countdown
             if (claimData.expiresAt) {
                 totalDurationMs = claimData.expiresAt - claimData.claimedAt;
                 timeRemainingMs = claimData.expiresAt - now;
@@ -451,31 +476,37 @@ function sweepExpiredTickets() {
                 timeRemainingMs = totalDurationMs - (now - claimData.claimedAt);
             }
         } else {
-            // Unclaimed ticket countdown
-            totalDurationMs = (platform === "district" ? 480 : 300) * 1000;
-            const rawTs = parseInt(item.getAttribute("data-timestamp"));
-            const snipeTimestampMs = rawTs > 100000000000 ? rawTs : rawTs * 1000;
-            timeRemainingMs = (snipeTimestampMs + totalDurationMs) - now;
+            totalDurationMs = data.totalDurationMs;
+            timeRemainingMs = (data.normalizedTs + totalDurationMs) - now;
         }
 
         if (timeRemainingMs <= 0) {
-            item.remove();
+            data.element.remove();
+            ticketRegistry.delete(tid);
+            
             if (claimData) {
                 delete localClaims[tid];
-                localStorage.setItem("snipe_claims", JSON.stringify(localClaims));
+                claimsChanged = true;
             }
             if (currentSelectedTicket && currentSelectedTicket.transaction_id === tid) {
                 clearCheckoutPanel();
             }
         } else {
-            const percentageLeft = Math.max(0, Math.min(100, (timeRemainingMs / totalDurationMs) * 100));
-            const bar = item.querySelector(".timer-bar");
-            bar.style.width = `${percentageLeft}%`;
-            if (percentageLeft < 20) bar.style.backgroundColor = "var(--status-red)";
-            else if (percentageLeft < 50) bar.style.backgroundColor = "var(--status-amber)";
-            else bar.style.backgroundColor = "var(--status-green)";
+            // Use hardware-accelerated transform instead of width
+            const percentageLeft = Math.max(0, Math.min(1, timeRemainingMs / totalDurationMs));
+            data.timerBar.style.transform = `scaleX(${percentageLeft})`;
+            
+            const pct100 = percentageLeft * 100;
+            if (pct100 < 20) data.timerBar.style.backgroundColor = "var(--status-red)";
+            else if (pct100 < 50) data.timerBar.style.backgroundColor = "var(--status-amber)";
+            else data.timerBar.style.backgroundColor = "var(--status-green)";
         }
-    });
+    }
+    
+    // Batch disk writes to prevent thread blocking
+    if (claimsChanged) {
+        localStorage.setItem("snipe_claims", JSON.stringify(localClaims));
+    }
 }
 
 btnGenerate.addEventListener("click", async () => {
