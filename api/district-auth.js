@@ -13,16 +13,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Initialize lazily on the first request
-    if (!supabaseAdmin) {
-        if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-            throw new Error("Missing Supabase environment variables on Vercel.");
-        }
-        supabaseAdmin = createClient(
-          process.env.SUPABASE_URL,
-          process.env.SUPABASE_SERVICE_ROLE_KEY
-        );
-    }
 
     const { action, ...payload } = req.body;
 
