@@ -33,18 +33,15 @@ export default async function handler(req, res) {
             });
 
             // 3. Fetch the user's District profile data
-            const {
-                data: profile,
-                error: profileError
-            } = await supabaseAdmin
-                .from('profiles')
-                .select('*')
-                .eq('id', user.id)
-                .single();
-
-            if (profileError || !profile) return res.status(500).json({
-                error: 'Profile not found'
-            });
+            // ADD THIS:
+const profile = {
+    district_device_id: body.district_device_id,
+    district_access_token: body.district_access_token,
+    district_refresh_token: body.district_refresh_token,
+    district_user_id: body.district_user_id,
+    district_phone_number: body.district_phone_number
+};
+if (!profile.district_device_id) return res.status(400).json({ error: 'Missing District auth tokens in payload' });
 
 
             // --- NEW: Multi-Step 'district' Workflow ---
